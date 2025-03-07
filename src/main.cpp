@@ -78,7 +78,7 @@ void setup()
 
 void loop()
 {
-  // if (flag)
+  // if (cycle == 1)
   // {
   Serial.print("timestamp fall = ");
   Serial.print(toggle_stamp_fall);
@@ -88,18 +88,17 @@ void loop()
   
   float period = (toggle_stamp_rise - toggle_stamp_fall) / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 1/16 * T/2
   float inductance = period * period / (4 * PI * PI);
-  Serial.print(", period = ");
-  Serial.print(period);
   Serial.print(" us, Inductance = ");
   Serial.print(inductance);
-  Serial.println(" uH");
+  Serial.print("uH , Cycle = ");
+  Serial.println(cycle);
 
-    // cli();
-    // flag = true;
-    // cycle = 0;
+  // cli();
+  // flag = true;
+  // cycle = 0;
 
-    // TIFR1 |= (1 << ICF1);
-    // sei();
+  // TIFR1 |= (1 << ICF1);
+  // sei();
   // }
 }
 
@@ -107,12 +106,6 @@ void loop()
 
 ISR(TIMER1_CAPT_vect)
 {
-  // if (cycle == 3)
-  // {
-  //   flag = true;
-  //   cli();
-  // }
-
   if (TCCR1B & (1 << ICES1)) // Trigger on rising comparator edge. Falling input edge.
   {
     toggle_stamp_fall = ICR1;
@@ -124,7 +117,8 @@ ISR(TIMER1_CAPT_vect)
     }
     else
     {
-      crossing = 0;
+      crossing = 1;
+      cycle++;
     }
   }
   else // Trigger on Falling comparator edge. Rising input edge.
@@ -134,6 +128,11 @@ ISR(TIMER1_CAPT_vect)
     crossing++;
   }
 
-  // uint8_t aco = (ACSR & (1 << ACO)) >> ACO; 
   PORTB ^= (1 << PB4);
 }
+
+
+// ISR(TIMER1_OVF_vect)
+// {
+//   cycle = 0;
+// }
