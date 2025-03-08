@@ -6,15 +6,18 @@
 #define PULSE_OUT PB2 // OC1B. Arduino pin 10.
 #define TIMER_F 16E6
 #define PULSE_45US uint16_t(45E-6 * TIMER_F - 1)
+#define CAP_VALUE_UF 106.2f // 69 nF
+#define CAP_INV 9.41619f
 
 // float TIMER_PERIOD = 1E6 / TIMER_F;
-float TIMER_PERIOD = 0.5f;
+// float TIMER_PERIOD = 0.5f;
 
 uint32_t toggle_stamp_fall = 0;
 uint32_t toggle_stamp_rise = 0;
-uint32_t cycle = 0;
-uint8_t flag = false;
-uint8_t crossing = 0;
+float tick_diff;
+// uint32_t cycle = 0;
+// uint8_t flag = false;
+// uint8_t crossing = 0;
 
 void setup()
 {
@@ -86,12 +89,11 @@ void loop()
   Serial.print(", timestamp rise = ");
   Serial.print(toggle_stamp_rise);
   
-  float period = (toggle_stamp_rise - toggle_stamp_fall) / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 1/16 * T/2
-  float inductance = period * period / (4 * PI * PI);
-  Serial.print(" us, Inductance = ");
+  float period = tick_diff / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 1/16 * T/2
+  float inductance = period * period / (4 * PI * PI) * CAP_INV;
+  Serial.print(", Inductance = ");
   Serial.print(inductance);
-  Serial.print("uH , Cycle = ");
-  Serial.println(cycle);
+  Serial.println("uH");
 
   // cli();
   // flag = true;
@@ -110,22 +112,12 @@ ISR(TIMER1_CAPT_vect)
   {
     toggle_stamp_fall = ICR1;
     TCCR1B &= ~(1 << ICES1);
-
-    if (crossing != 2)
-    {
-      crossing++;
-    }
-    else
-    {
-      crossing = 1;
-      cycle++;
-    }
   }
   else // Trigger on Falling comparator edge. Rising input edge.
   {
     toggle_stamp_rise = ICR1;
     TCCR1B |= (1 << ICES1);
-    crossing++;
+    tick_diff = toggle_stamp_rise - toggle_stamp_fall;
   }
 
   PORTB ^= (1 << PB4);
