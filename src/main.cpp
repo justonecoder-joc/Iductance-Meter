@@ -89,7 +89,7 @@ void loop()
   Serial.print(", timestamp rise = ");
   Serial.print(toggle_stamp_rise);
   
-  float period = tick_diff / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 1/16 * T/2
+  float period = tick_diff / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 16 * T/2 => T = 16 * (t_fall - trise)/2
   float inductance = period * period / (4 * PI * PI) * CAP_INV;
   Serial.print(", Inductance = ");
   Serial.print(inductance);
