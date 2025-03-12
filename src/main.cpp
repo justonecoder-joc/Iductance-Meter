@@ -9,13 +9,12 @@
 #define CAP_VALUE_UF 106.2f // 69 nF
 #define CAP_INV 9.41619f
 
-// float TIMER_PERIOD = 1E6 / TIMER_F;
-// float TIMER_PERIOD = 0.5f;
+float L_CONSTANT = 4 * PI * PI / CAP_INV;
 
-uint32_t toggle_stamp_fall = 0;
-uint32_t toggle_stamp_rise = 0;
+uint32_t toggle_stamp_fall_1= 0;
+uint32_t toggle_stamp_fall_2 = 0;
 float tick_diff;
-// uint32_t cycle = 0;
+uint8_t cycle = 0;
 // uint8_t flag = false;
 // uint8_t crossing = 0;
 
@@ -49,7 +48,7 @@ void setup()
   TIMSK1 |= (1 << ICIE1); // Enable input capture interrupt.
 
   // Output compare interrupt enable to increase timer resolution.
-  // TIMSK1 |= (1 << TOIE1);
+  TIMSK1 |= (1 << TOIE1);
 
   // When AIN1 is LOW, comparator output is HIGH. Therefore, the edge detection of input capture should be flipped.
   // Analog Comparator configuration.
@@ -62,69 +61,54 @@ void setup()
   
   
   // Timer1 start.
-  // CLK / 8 prescaler.
-  TCCR1B &= ~((1 << CS12) | (1 << CS10));
-  TCCR1B |= (1 << CS11);
+  // // CLK / 8 prescaler.
+  // TCCR1B &= ~((1 << CS12) | (1 << CS10));
+  // TCCR1B |= (1 << CS11);
   
   // CLK / 1 prescaler. No Prescaler.
   TCCR1B &= ~((1 << CS12) | (1 << CS11));
   TCCR1B |= (1 << CS10);
-  
-  // // CLK / 256 prescaler. No Prescaler.
-  // TCCR1B &= ~((1 << CS11) | (1 << CS10));
-  // TCCR1B |= (1 << CS12);
-
-  // Write high byte first, because writing low byte causes timer write.
-  // OCR1AH = COMP_VAL >> 8;
-  // OCR1AL = COMP_VAL;
 }
 
 void loop()
 {
   // if (cycle == 1)
   // {
-  Serial.print("timestamp fall = ");
-  Serial.print(toggle_stamp_fall);
+  Serial.print("timestamp fall 1 = ");
+  Serial.print(toggle_stamp_fall_1);
 
-  Serial.print(", timestamp rise = ");
-  Serial.print(toggle_stamp_rise);
+  Serial.print(", timestamp fall 2 = ");
+  Serial.print(toggle_stamp_fall_2);
   
-  float period = tick_diff / 8; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 16 * T/2 => T = 16 * (t_fall - trise)/2
-  float inductance = period * period / (4 * PI * PI) * CAP_INV;
+  Serial.print(", Tick diff = ");
+  Serial.print(tick_diff);
+  
+  float period = tick_diff / 16; // Timestamp is in 62.5 ns/tick. t_fall-t_rise = 16 * T/2 => T = (t_fall - trise)/16
+  float inductance = period * period / L_CONSTANT;
   Serial.print(", Inductance = ");
   Serial.print(inductance);
   Serial.println("uH");
-
-  // cli();
-  // flag = true;
-  // cycle = 0;
-
-  // TIFR1 |= (1 << ICF1);
-  // sei();
-  // }
 }
 
 // first trigger on falling-edge of comparator, then trigger on rising edge to capture one half-cycle.
 
 ISR(TIMER1_CAPT_vect)
 {
-  if (TCCR1B & (1 << ICES1)) // Trigger on rising comparator edge. Falling input edge.
+  if (cycle == 2)
   {
-    toggle_stamp_fall = ICR1;
-    TCCR1B &= ~(1 << ICES1);
+    toggle_stamp_fall_2 = ICR1;
+    tick_diff = toggle_stamp_fall_2 - toggle_stamp_fall_1;
   }
-  else // Trigger on Falling comparator edge. Rising input edge.
+  else if (cycle == 1)
   {
-    toggle_stamp_rise = ICR1;
-    TCCR1B |= (1 << ICES1);
-    tick_diff = toggle_stamp_rise - toggle_stamp_fall;
+    toggle_stamp_fall_1 = ICR1;
   }
 
-  PORTB ^= (1 << PB4);
+  cycle++;
 }
 
 
-// ISR(TIMER1_OVF_vect)
-// {
-//   cycle = 0;
-// }
+ISR(TIMER1_OVF_vect)
+{
+  cycle = 0;
+}
